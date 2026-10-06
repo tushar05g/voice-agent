@@ -13,7 +13,7 @@ image = (
     .apt_install("ffmpeg")
     .pip_install(
         "livekit-agents~=1.8",
-        "livekit-server-sdk",
+        "livekit-api",
         "livekit-plugins-elevenlabs",
         "livekit-plugins-assemblyai",
         "livekit-plugins-silero",
@@ -83,7 +83,7 @@ async def make_outbound_call(req: CallRequest, token: str = Depends(verify_token
 @app.function(
     image=image,
     secrets=[modal.Secret.from_dotenv()],
-    concurrency_limit=10,
+    max_containers=10,
     min_containers=1,
 )
 @modal.asgi_app()
@@ -94,7 +94,7 @@ def fastapi_app():
 @app.function(
     image=image,
     secrets=[modal.Secret.from_dotenv()],
-    concurrency_limit=10,
+    max_containers=10,
 )
 def run_agent():
     # Run the livekit agent process

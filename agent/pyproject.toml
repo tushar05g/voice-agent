@@ -11,10 +11,12 @@ requires-python = ">=3.10, <3.15"
 dependencies = [
     "livekit-agents~=1.8",
     "livekit-plugins-elevenlabs",
-    "livekit-plugins-google",
+    "livekit-plugins-assemblyai",
+    "livekit-plugins-silero",
     "groq",
     "google-generativeai",
     "python-dotenv",
+    "supabase",
 ]
 
 [dependency-groups]

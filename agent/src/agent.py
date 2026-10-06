@@ -1,12 +1,14 @@
 import json
 import logging
+import os
 from typing import AsyncIterable
 
 from dotenv import load_dotenv
 from groq import AsyncGroq
 from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli, llm
 from livekit.agents.pipeline import VoicePipelineAgent
-from livekit.plugins import elevenlabs, google
+from livekit.plugins import elevenlabs, assemblyai, silero
+from supabase import create_client, Client
 
 load_dotenv()
 logger = logging.getLogger("voice-agent")
@@ -68,31 +70,38 @@ class GroqLLMStream(llm.LLMStream):
             raise StopAsyncIteration
 
 async def fetch_tenant_config(tenant_id: str, persona: str) -> dict:
-    # MOCK DATABASE: In production, replace this with a real DB call (e.g., PostgreSQL, Supabase, Firebase)
-    # query = "SELECT system_prompt, voice_id FROM personas WHERE tenant_id = $1 AND persona = $2"
-    mock_db = {
-        "hospital_123": {
-            "receptionist": {
-                "prompt": "You are a receptionist for City Hospital. Help callers book appointments and answer basic questions. Be empathetic and professional.",
-                "voice_id": "EXAVITQu4vr4xnSDxMaL" # Use a professional voice
-            }
-        },
-        "school_456": {
-            "admin": {
-                "prompt": "You are a school administrator for Springfield High. Assist parents with attendance inquiries and event schedules.",
-                "voice_id": "pNInz6obpgDQGcFmaJgB" # Use a friendly voice
-            }
-        }
-    }
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_KEY")
     
-    # Default fallback config if tenant or persona not found
     default_config = {
         "prompt": "You are a friendly, general-purpose AI assistant.",
-        "voice_id": "EXAVITQu4vr4xnSDxMaL"
+        "voice_id": "EXAVITQu4vr4xnSDxMaL",
+        "initial_greeting": "Hello, how can I help you today?"
     }
-    
-    tenant_data = mock_db.get(tenant_id, {})
-    return tenant_data.get(persona, default_config)
+
+    if not supabase_url or not supabase_key:
+        logger.warning("SUPABASE_URL or SUPABASE_KEY not set. Using default fallback configuration.")
+        return default_config
+
+    try:
+        supabase: Client = create_client(supabase_url, supabase_key)
+        # Fetch persona configuration from 'personas' table
+        response = supabase.table("personas").select("*").eq("tenant_id", tenant_id).eq("persona", persona).execute()
+        
+        if len(response.data) > 0:
+            row = response.data[0]
+            return {
+                "prompt": row.get("system_prompt", default_config["prompt"]),
+                "voice_id": row.get("voice_id", default_config["voice_id"]),
+                "initial_greeting": row.get("initial_greeting", default_config["initial_greeting"])
+            }
+        else:
+            logger.warning(f"No configuration found for tenant_id: {tenant_id}, persona: {persona}. Using default.")
+            return default_config
+    except Exception as e:
+        logger.error(f"Error fetching from Supabase: {e}")
+        return default_config
+
 
 async def entrypoint(ctx: JobContext):
     logger.info(f"Connecting to room {ctx.room.name}")
@@ -105,13 +114,13 @@ async def entrypoint(ctx: JobContext):
     try:
         if participant.metadata:
             metadata = json.loads(participant.metadata)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Error parsing participant metadata: {e}")
 
     tenant_id = metadata.get("tenant_id", "unknown_tenant")
     persona = metadata.get("persona", "default")
     
-    # Fetch configuration dynamically from our "database"
+    # Fetch configuration dynamically from database
     client_config = await fetch_tenant_config(tenant_id, persona)
 
     initial_ctx = llm.ChatContext().append(
@@ -121,7 +130,7 @@ async def entrypoint(ctx: JobContext):
 
     agent = VoicePipelineAgent(
         vad=ctx.proc.userdata["vad"],
-        stt=google.STT(),
+        stt=assemblyai.STT(),
         llm=GroqLLM(model="llama-3.1-8b-instant"),
         tts=elevenlabs.TTS(
             model="eleven_turbo_v2",
@@ -136,12 +145,12 @@ async def entrypoint(ctx: JobContext):
 
     agent.start(ctx.room, participant)
     
-    await agent.say("Hello, how can I help you today?", allow_interruptions=True)
+    await agent.say(client_config["initial_greeting"], allow_interruptions=True)
 
 if __name__ == "__main__":
     cli.run_app(
         WorkerOptions(
             entrypoint_fnc=entrypoint,
-            prewarm_fnc=lambda proc: proc.userdata.update({"vad": google.VAD()}) # using google for mock vad or fallback
+            prewarm_fnc=lambda proc: proc.userdata.update({"vad": silero.VAD.load()})
         )
     )

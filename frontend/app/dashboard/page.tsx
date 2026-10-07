@@ -198,14 +198,30 @@ export default function ClientDashboard() {
                   {activeTab === 'overview' && (
                     <div className="space-y-6 animate-in fade-in duration-300">
                       <h3 className="text-sm font-medium text-zinc-400 flex items-center gap-2">
-                        <Settings className="h-4 w-4" /> System Instructions
+                        <Settings className="h-4 w-4" /> Agent Profile
                       </h3>
-                      <div className="rounded-xl border border-white/5 bg-[#050505] p-6 font-mono text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                        {selectedAgent.agent_prompt}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="rounded-xl border border-white/5 bg-[#050505] p-6">
+                          <p className="text-xs text-zinc-500 mb-1">Agent Name</p>
+                          <p className="text-sm font-medium text-white">{selectedAgent.agent_name}</p>
+                        </div>
+                        <div className="rounded-xl border border-white/5 bg-[#050505] p-6">
+                          <p className="text-xs text-zinc-500 mb-1">Assigned Number</p>
+                          <p className="text-sm font-mono text-white">{selectedAgent.phone_number}</p>
+                        </div>
+                        <div className="rounded-xl border border-white/5 bg-[#050505] p-6">
+                          <p className="text-xs text-zinc-500 mb-1">Base Plan</p>
+                          <p className="text-sm font-medium text-white">${selectedAgent.monthly_price}/mo</p>
+                        </div>
+                        <div className="rounded-xl border border-white/5 bg-[#050505] p-6">
+                          <p className="text-xs text-zinc-500 mb-1">Status</p>
+                          <p className="text-sm font-medium text-emerald-400">Online & Ready</p>
+                        </div>
                       </div>
-                      <p className="text-xs text-zinc-500">
-                        * To modify core instructions, contact support to ensure safe deployment.
-                      </p>
+                      <div className="mt-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 text-sm text-indigo-200">
+                        <p className="flex items-center gap-2 font-medium mb-1"><Zap className="h-4 w-4"/> AI Configuration</p>
+                        <p className="text-indigo-300/70 text-xs">Core AI behaviors, prompts, and tone are managed securely by our engineering team to guarantee 99.9% uptime and quality. Need to change how the agent behaves? <button onClick={() => setMenuTab('support')} className="underline hover:text-indigo-100">Submit a support request.</button></p>
+                      </div>
                     </div>
                   )}
 

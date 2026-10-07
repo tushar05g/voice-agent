@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Bot, LogOut, Plus, Search, MessageSquare, PhoneCall, LayoutDashboard, Ticket, Users } from 'lucide-react';
+import { Bot, LogOut, Plus, Search, MessageSquare, PhoneCall, LayoutDashboard, Ticket, Users, Edit2, X } from 'lucide-react';
 
 type Agent = {
   id: string;
@@ -15,7 +15,7 @@ type Agent = {
   phone_number: string;
   monthly_price: number;
   status?: string;
-  clients?: { email: string };
+  clients?: { email: string; name?: string };
 };
 
 export default function OwnerDashboard() {
@@ -24,9 +24,12 @@ export default function OwnerDashboard() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuTab, setMenuTab] = useState<'dashboard' | 'provision' | 'support'>('dashboard');
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   const [newAgent, setNewAgent] = useState({ 
     clientEmail: '', 
+    clientName: '',
     name: '', 
     phone: '',
     prompt: 'You are a helpful AI assistant.',
@@ -77,10 +80,10 @@ export default function OwnerDashboard() {
 
   const fetchAgents = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('agents').select('*, clients(email)').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('agents').select('*, clients(email, name)').order('created_at', { ascending: false });
     if (data) setAgents(data);
     
-    const { data: ticketData } = await supabase.from('support_tickets').select('*, clients(email)').order('created_at', { ascending: false });
+    const { data: ticketData } = await supabase.from('support_tickets').select('*, clients(email, name)').order('created_at', { ascending: false });
     if (ticketData) setTickets(ticketData);
       
     setLoading(false);
@@ -91,14 +94,17 @@ export default function OwnerDashboard() {
     if (!newAgent.clientEmail || !newAgent.name || !newAgent.phone) return;
     setIsSubmitting(true);
     
-    try {
+      try {
       let clientId = '';
-      const { data: existingClient } = await supabase.from('clients').select('id').eq('email', newAgent.clientEmail).single();
+      const { data: existingClient } = await supabase.from('clients').select('id, name').eq('email', newAgent.clientEmail).single();
         
       if (existingClient) {
         clientId = existingClient.id;
+        if (newAgent.clientName && existingClient.name !== newAgent.clientName) {
+           await supabase.from('clients').update({ name: newAgent.clientName }).eq('id', clientId);
+        }
       } else {
-        const { data: newClient, error: clientError } = await supabase.from('clients').insert([{ email: newAgent.clientEmail }]).select().single();
+        const { data: newClient, error: clientError } = await supabase.from('clients').insert([{ email: newAgent.clientEmail, name: newAgent.clientName }]).select().single();
         if (clientError) throw clientError;
         clientId = newClient.id;
       }
@@ -114,7 +120,7 @@ export default function OwnerDashboard() {
         
       if (agentError) throw agentError;
       
-      setNewAgent({ clientEmail: '', name: '', phone: '', prompt: 'You are a helpful AI assistant.', voiceId: 'alloy' });
+      setNewAgent({ clientEmail: '', clientName: '', name: '', phone: '', prompt: 'You are a helpful AI assistant.', voiceId: 'alloy' });
       await fetchAgents();
       setMenuTab('dashboard');
       
@@ -122,6 +128,38 @@ export default function OwnerDashboard() {
       alert('Error creating agent. Check console for details.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateAgent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAgent) return;
+    setIsUpdating(true);
+    
+    try {
+      const { error } = await supabase.from('agents').update({
+        agent_name: editingAgent.agent_name,
+        agent_prompt: editingAgent.agent_prompt,
+        phone_number: editingAgent.phone_number,
+        monthly_price: editingAgent.monthly_price,
+      }).eq('id', editingAgent.id);
+      
+      if (error) throw error;
+      
+      if (editingAgent.clients?.email || editingAgent.clients?.name) {
+        const { error: clientError } = await supabase.from('clients').update({
+          email: editingAgent.clients.email,
+          name: editingAgent.clients.name
+        }).eq('id', editingAgent.client_id);
+        if (clientError) throw clientError;
+      }
+      
+      await fetchAgents();
+      setEditingAgent(null);
+    } catch (err) {
+      alert('Error updating agent.');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -139,7 +177,7 @@ export default function OwnerDashboard() {
         
         <nav className="flex-1 space-y-1.5">
           <button 
-            onClick={() => setMenuTab('dashboard')}
+            onClick={() => { setMenuTab('dashboard'); setEditingAgent(null); }}
             className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${menuTab === 'dashboard' ? 'bg-white/10 text-white shadow' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
           >
             <LayoutDashboard className="h-4 w-4" /> Global Deployments
@@ -183,54 +221,160 @@ export default function OwnerDashboard() {
               </header>
 
               <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 backdrop-blur-xl shadow-xl">
-                <div className="mb-8 flex items-center justify-between">
-                  <h2 className="text-lg font-medium text-white flex items-center gap-2">
-                    <Users className="h-5 w-5 text-indigo-400" /> Active Agents
-                  </h2>
-                  <span className="rounded-full bg-indigo-500/10 px-4 py-1 text-xs font-medium text-indigo-400 border border-indigo-500/20">
-                    {agents.length} Total
-                  </span>
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-white/10 text-zinc-500">
-                        <th className="pb-4 pl-2 font-medium">Client</th>
-                        <th className="pb-4 font-medium">Agent</th>
-                        <th className="pb-4 font-medium">Phone Number</th>
-                        <th className="pb-4 pr-2 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-zinc-300">
-                      {loading ? (
-                        <tr>
-                          <td colSpan={4} className="py-12 text-center">
-                            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-                          </td>
-                        </tr>
-                      ) : agents.map((agent) => (
-                        <tr key={agent.id} className="group border-b border-white/5 transition-colors hover:bg-white/[0.02]">
-                          <td className="py-5 pl-2 text-white">{agent.clients?.email || 'Unknown'}</td>
-                          <td className="py-5 font-medium text-zinc-200">{agent.agent_name}</td>
-                          <td className="py-5 font-mono text-xs text-zinc-400">{agent.phone_number}</td>
-                          <td className="py-5 pr-2">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-400 border border-emerald-500/20">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Active
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                      {!loading && agents.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="py-12 text-center text-zinc-500">
-                            No agents deployed yet.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                {!editingAgent ? (
+                  <>
+                    <div className="mb-8 flex items-center justify-between">
+                      <h2 className="text-lg font-medium text-white flex items-center gap-2">
+                        <Users className="h-5 w-5 text-indigo-400" /> Active Agents
+                      </h2>
+                      <span className="rounded-full bg-indigo-500/10 px-4 py-1 text-xs font-medium text-indigo-400 border border-indigo-500/20">
+                        {agents.length} Total
+                      </span>
+                    </div>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-left text-sm">
+                        <thead>
+                          <tr className="border-b border-white/10 text-zinc-500">
+                            <th className="pb-4 pl-2 font-medium">Client</th>
+                            <th className="pb-4 font-medium">Agent</th>
+                            <th className="pb-4 font-medium">Phone Number</th>
+                            <th className="pb-4 pr-2 font-medium">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-zinc-300">
+                          {loading ? (
+                            <tr>
+                              <td colSpan={4} className="py-12 text-center">
+                                <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                              </td>
+                            </tr>
+                          ) : agents.map((agent) => (
+                            <tr key={agent.id} className="group border-b border-white/5 transition-colors hover:bg-white/[0.02]">
+                              <td className="py-5 pl-2 text-white">
+                                <div>{agent.clients?.name || 'No Name'}</div>
+                                <div className="text-xs text-zinc-500">{agent.clients?.email || 'Unknown'}</div>
+                              </td>
+                              <td className="py-5 font-medium text-zinc-200">{agent.agent_name}</td>
+                              <td className="py-5 font-mono text-xs text-zinc-400">{agent.phone_number}</td>
+                              <td className="py-5 pr-2">
+                                <button 
+                                  onClick={() => setEditingAgent(agent)}
+                                  className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10 transition-colors border border-white/10"
+                                >
+                                  <Edit2 className="h-3 w-3" /> Edit
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {!loading && agents.length === 0 && (
+                            <tr>
+                              <td colSpan={4} className="py-12 text-center text-zinc-500">
+                                No agents deployed yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <div className="animate-in fade-in zoom-in-95 duration-300">
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-medium text-white flex items-center gap-2">
+                        <Edit2 className="h-5 w-5 text-indigo-400" /> Edit Agent Profile
+                      </h2>
+                      <button 
+                        onClick={() => setEditingAgent(null)}
+                        className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                    
+                    <form onSubmit={handleUpdateAgent} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium text-zinc-400">Client Name</label>
+                          <input
+                            type="text"
+                            value={editingAgent.clients?.name || ''}
+                            onChange={(e) => setEditingAgent({ ...editingAgent, clients: { ...editingAgent.clients, name: e.target.value } as any })}
+                            className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium text-zinc-400">Client Email</label>
+                          <input
+                            type="email"
+                            required
+                            value={editingAgent.clients?.email || ''}
+                            onChange={(e) => setEditingAgent({ ...editingAgent, clients: { ...editingAgent.clients, email: e.target.value } as any })}
+                            className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium text-zinc-400">Agent Name</label>
+                          <input
+                            type="text"
+                            required
+                            value={editingAgent.agent_name}
+                            onChange={(e) => setEditingAgent({ ...editingAgent, agent_name: e.target.value })}
+                            className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium text-zinc-400">Phone Number</label>
+                          <input
+                            type="text"
+                            required
+                            value={editingAgent.phone_number}
+                            onChange={(e) => setEditingAgent({ ...editingAgent, phone_number: e.target.value })}
+                            className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 font-mono"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-medium text-zinc-400">System Prompt</label>
+                        <textarea
+                          required
+                          value={editingAgent.agent_prompt}
+                          onChange={(e) => setEditingAgent({ ...editingAgent, agent_prompt: e.target.value })}
+                          className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-4 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 h-40 resize-none font-mono"
+                        />
+                      </div>
+                      
+                      <div className="space-y-1.5 w-1/3">
+                        <label className="text-sm font-medium text-zinc-400">Monthly Price ($)</label>
+                        <input
+                          type="number"
+                          required
+                          value={editingAgent.monthly_price}
+                          onChange={(e) => setEditingAgent({ ...editingAgent, monthly_price: Number(e.target.value) })}
+                          className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                        />
+                      </div>
+                      
+                      <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                        <button
+                          type="button"
+                          onClick={() => setEditingAgent(null)}
+                          className="rounded-xl px-5 py-2.5 text-sm font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isUpdating}
+                          className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 focus:outline-none disabled:opacity-50"
+                        >
+                          {isUpdating ? 'Saving...' : 'Save Changes'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -244,16 +388,28 @@ export default function OwnerDashboard() {
 
               <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 backdrop-blur-xl shadow-xl">
                 <form onSubmit={handleAddAgent} className="space-y-6">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-zinc-400">Client Email</label>
-                    <input
-                      type="email"
-                      required
-                      value={newAgent.clientEmail}
-                      onChange={(e) => setNewAgent({ ...newAgent, clientEmail: e.target.value })}
-                      className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
-                      placeholder="client@company.com"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-zinc-400">Client Name</label>
+                      <input
+                        type="text"
+                        value={newAgent.clientName}
+                        onChange={(e) => setNewAgent({ ...newAgent, clientName: e.target.value })}
+                        className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                        placeholder="John Doe"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-zinc-400">Client Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={newAgent.clientEmail}
+                        onChange={(e) => setNewAgent({ ...newAgent, clientEmail: e.target.value })}
+                        className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                        placeholder="client@company.com"
+                      />
+                    </div>
                   </div>
                   
                   <div className="space-y-1.5">

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Bot, Sparkles, LogIn, ChevronRight, Fingerprint, Mail } from 'lucide-react';
+import { Bot, Sparkles, LogIn, ChevronRight, Fingerprint, Mail, ArrowRight, KeyRound } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');

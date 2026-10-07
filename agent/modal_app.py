@@ -95,6 +95,7 @@ def fastapi_app():
     image=image,
     secrets=[modal.Secret.from_dotenv()],
     max_containers=10,
+    min_containers=1,
 )
 def run_agent():
     # Run the livekit agent process

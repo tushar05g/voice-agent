@@ -47,13 +47,13 @@ export default function OwnerDashboard() {
     if (process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true') {
       setUserEmail('admin@voiceagent.in');
       setAgents([{
-        id: '1', client_id: '1', agent_name: 'Test Sales Agent', agent_prompt: 'You are a sales bot',
+        id: '00000000-0000-0000-0000-000000000001', client_id: '00000000-0000-0000-0000-000000000002', agent_name: 'Test Sales Agent', agent_prompt: 'You are a sales bot',
         voice_id: 'alloy', phone_number: '+15550001111', monthly_price: 199,
-        clients: { email: 'test@company.com' }
+        clients: { email: 'test@company.com', name: 'test client' }
       }]);
       setTickets([{
-        id: '1', client_id: '1', message: 'Can you increase the speaking speed of my agent?',
-        status: 'open', clients: { email: 'test@company.com' }
+        id: '00000000-0000-0000-0000-000000000003', client_id: '00000000-0000-0000-0000-000000000002', message: 'Can you increase the speaking speed of my agent?',
+        status: 'open', clients: { email: 'test@company.com', name: 'test client' }
       }]);
       setLoading(false);
       return;

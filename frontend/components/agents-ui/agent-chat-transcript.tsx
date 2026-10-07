@@ -20,8 +20,7 @@ import {
  * Props for the AgentChatTranscript component.
  */
 export interface AgentChatTranscriptProps
-  extends
-    ComponentProps<'div'>,
+  extends ComponentProps<'div'>,
     ComponentProps<typeof MessageScrollerProvider>,
     ComponentProps<typeof MessageScrollerViewport>,
     ComponentProps<typeof MessageScrollerContent> {

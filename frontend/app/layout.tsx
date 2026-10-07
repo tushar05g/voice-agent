@@ -64,7 +64,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
           disableTransitionOnChange
         >
           <header className="fixed top-0 left-0 z-50 hidden w-full flex-row justify-between p-6 md:flex">
-            <span className="font-bold text-lg tracking-tight">AI Voice Platform</span>
+            <span className="text-lg font-bold tracking-tight">AI Voice Platform</span>
           </header>
 
           {children}

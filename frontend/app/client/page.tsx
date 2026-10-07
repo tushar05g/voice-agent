@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { Bot, LogOut, PhoneCall, Activity, CreditCard, LifeBuoy, Zap } from 'lucide-react';
 
 export default function ClientDashboard() {
   const router = useRouter();
@@ -40,8 +40,6 @@ export default function ClientDashboard() {
     
     setUserEmail(session.user.email || '');
     
-    // Fetch agents for this client. RLS will automatically restrict this 
-    // to only agents belonging to this client's email!
     const { data, error } = await supabase
       .from('agents')
       .select('*');
@@ -85,99 +83,141 @@ export default function ClientDashboard() {
   const totalBill = bill.totalMinutes * bill.ratePerMinute + agents.reduce((acc, agent) => acc + (agent.monthly_price || 0), 0);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8 font-sans text-gray-900">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <header className="flex items-center justify-between border-b border-gray-200 pb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Client Dashboard</h1>
-            <p className="mt-1 text-gray-500">Welcome back, {userEmail}</p>
+    <div className="min-h-screen bg-[#030303] text-zinc-100 font-sans selection:bg-indigo-500/30">
+      
+      {/* Background gradients */}
+      <div className="fixed top-0 left-1/2 h-[500px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none" />
+
+      <div className="mx-auto max-w-6xl px-6 py-12 relative z-10">
+        
+        <header className="flex items-center justify-between mb-12">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/5 shadow-xl backdrop-blur-md">
+              <Bot className="h-6 w-6 text-indigo-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-white">Client Portal</h1>
+              <p className="text-sm text-zinc-400">{userEmail}</p>
+            </div>
           </div>
           <button
             onClick={handleSignOut}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 shadow-sm transition hover:bg-gray-50"
+            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-zinc-300 transition-all hover:bg-white/10 hover:text-white"
           >
+            <LogOut className="h-4 w-4" />
             Sign Out
           </button>
         </header>
 
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-          {/* Billing Overview */}
-          <div className="space-y-8 md:col-span-1">
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-semibold text-gray-700">Current Billing Cycle</h2>
-              <div className="mb-6 text-4xl font-bold text-gray-900">${totalBill.toFixed(2)}</div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          
+          {/* Sidebar / Stats */}
+          <div className="space-y-6 lg:col-span-1">
+            
+            {/* Billing Card */}
+            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-6 opacity-10">
+                <CreditCard className="h-24 w-24" />
+              </div>
+              <h2 className="text-sm font-medium text-zinc-400 flex items-center gap-2 mb-2">
+                <CreditCard className="h-4 w-4" /> Current Billing
+              </h2>
+              <div className="text-4xl font-semibold text-white tracking-tight mb-6">
+                ${totalBill.toFixed(2)}
+              </div>
 
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between text-gray-600">
-                  <span>Base Subscription</span>
-                  <span className="font-medium">${bill.baseSubscription.toFixed(2)}</span>
+              <div className="space-y-4 text-sm relative z-10">
+                <div className="flex justify-between text-zinc-400">
+                  <span>Platform Fee</span>
+                  <span className="text-zinc-200">${bill.baseSubscription.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>
-                    Usage ({bill.totalMinutes} mins @ ${bill.ratePerMinute}/min)
-                  </span>
-                  <span className="font-medium">
+                <div className="flex justify-between text-zinc-400">
+                  <span>Usage ({bill.totalMinutes}m)</span>
+                  <span className="text-zinc-200">
                     ${(bill.totalMinutes * bill.ratePerMinute).toFixed(2)}
                   </span>
                 </div>
               </div>
 
-              <button className="mt-6 w-full rounded-lg bg-gray-900 px-4 py-2 font-medium text-white transition duration-200 hover:bg-gray-800">
-                View Invoice Details
+              <button className="mt-6 w-full rounded-xl bg-white/5 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-white/10 border border-white/5">
+                View Invoice
               </button>
             </div>
 
-            {/* Quick Actions (Future Data source upload could go here if enabled for clients) */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-semibold text-gray-700">Need Help?</h2>
-              <p className="mb-4 text-sm text-gray-500">
-                Want to update your agent&apos;s knowledge base or adjust its persona?
+            {/* Support Card */}
+            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl">
+              <h2 className="text-sm font-medium text-zinc-400 flex items-center gap-2 mb-3">
+                <LifeBuoy className="h-4 w-4" /> Need Help?
+              </h2>
+              <p className="mb-5 text-sm text-zinc-500 leading-relaxed">
+                Want to update your agent's knowledge base, prompt, or voice? Let our team know.
               </p>
               <button 
                 onClick={handleContactSupport}
-                className="w-full rounded-lg bg-blue-50 px-4 py-2 font-medium text-blue-700 transition duration-200 hover:bg-blue-100"
+                className="w-full rounded-xl bg-indigo-500/10 border border-indigo-500/20 px-4 py-2.5 text-sm font-medium text-indigo-400 transition-all hover:bg-indigo-500/20 hover:text-indigo-300"
               >
                 Submit Support Ticket
               </button>
             </div>
           </div>
 
-          {/* Active Agents List */}
-          <div className="space-y-8 md:col-span-2">
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-6 text-xl font-semibold text-gray-800">Your Agents</h2>
+          {/* Main Content (Agents) */}
+          <div className="lg:col-span-2">
+            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 backdrop-blur-xl min-h-[500px]">
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-lg font-medium text-white flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-indigo-400" /> Active Deployments
+                </h2>
+              </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {loading ? (
-                  <div className="text-gray-500 p-4">Loading your agents...</div>
+                  <div className="col-span-2 flex justify-center py-12">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                  </div>
                 ) : agents.length === 0 ? (
-                  <div className="text-gray-500 p-4 col-span-2">You don't have any active agents yet.</div>
+                  <div className="col-span-2 rounded-xl border border-dashed border-white/10 p-12 text-center">
+                    <p className="text-sm text-zinc-500">No agents deployed yet.</p>
+                  </div>
                 ) : agents.map((agent) => (
-                  <div key={agent.id} className="rounded-lg border border-gray-200 p-5 transition-colors hover:border-blue-300">
+                  <div key={agent.id} className="group relative rounded-xl border border-white/10 bg-white/5 p-5 transition-all hover:bg-white/10 hover:border-indigo-500/50">
                     <div className="mb-4 flex items-start justify-between">
                       <div>
-                        <h3 className="text-lg font-semibold">{agent.agent_name}</h3>
-                        <p className="text-sm text-gray-500">AI Assistant</p>
+                        <h3 className="text-base font-medium text-white">{agent.agent_name}</h3>
+                        <p className="text-xs text-zinc-500 mt-0.5">Voice AI Assistant</p>
                       </div>
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-400 border border-emerald-500/20">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         Online
                       </span>
                     </div>
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <div className="flex justify-between">
-                        <span>Phone:</span>
-                        <span className="font-mono text-gray-900">{agent.phone_number}</span>
+                    
+                    <div className="space-y-3 mb-6">
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-zinc-400">
+                          <PhoneCall className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-zinc-500">Assigned Number</p>
+                          <p className="font-mono text-zinc-200">{agent.phone_number}</p>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Monthly Cost:</span>
-                        <span className="font-medium text-gray-900">${agent.monthly_price}/mo</span>
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-zinc-400">
+                          <Activity className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-zinc-500">Cost Structure</p>
+                          <p className="font-medium text-zinc-200">${agent.monthly_price}/mo</p>
+                        </div>
                       </div>
                     </div>
-                    <div className="mt-4 flex gap-2 border-t border-gray-100 pt-4">
-                      <button className="flex-1 rounded border border-gray-300 bg-white py-1.5 text-sm font-medium transition hover:bg-gray-50">
+
+                    <div className="flex gap-2 border-t border-white/10 pt-4 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button className="flex-1 rounded-lg border border-white/10 bg-white/5 py-2 text-xs font-medium text-white hover:bg-white/10 transition-colors">
                         Call Logs
                       </button>
-                      <button className="flex-1 rounded border border-gray-300 bg-white py-1.5 text-sm font-medium transition hover:bg-gray-50">
+                      <button className="flex-1 rounded-lg border border-white/10 bg-white/5 py-2 text-xs font-medium text-white hover:bg-white/10 transition-colors">
                         Analytics
                       </button>
                     </div>
@@ -186,6 +226,7 @@ export default function ClientDashboard() {
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </div>

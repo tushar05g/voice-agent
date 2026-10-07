@@ -66,7 +66,7 @@ export default function OwnerDashboard() {
     const userEmail = session.user.email || '';
     
     if (!adminEmails.includes(userEmail) && userEmail !== masterEmail) {
-      router.push('/client');
+      router.push('/dashboard');
       return;
     }
     

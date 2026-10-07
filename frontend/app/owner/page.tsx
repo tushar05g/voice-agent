@@ -94,31 +94,20 @@ export default function OwnerDashboard() {
     if (!newAgent.clientEmail || !newAgent.name || !newAgent.phone) return;
     setIsSubmitting(true);
     
-      try {
-      let clientId = '';
-      const { data: existingClient } = await supabase.from('clients').select('id, name').eq('email', newAgent.clientEmail).single();
-        
-      if (existingClient) {
-        clientId = existingClient.id;
-        if (newAgent.clientName && existingClient.name !== newAgent.clientName) {
-           await supabase.from('clients').update({ name: newAgent.clientName }).eq('id', clientId);
-        }
-      } else {
-        const { data: newClient, error: clientError } = await supabase.from('clients').insert([{ email: newAgent.clientEmail, name: newAgent.clientName }]).select().single();
-        if (clientError) throw clientError;
-        clientId = newClient.id;
-      }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
       
-      const { error: agentError } = await supabase.from('agents').insert([{
-        client_id: clientId,
-        agent_name: newAgent.name,
-        agent_prompt: newAgent.prompt,
-        voice_id: newAgent.voiceId,
-        phone_number: newAgent.phone,
-        monthly_price: 199 
-      }]);
-        
-      if (agentError) throw agentError;
+      const res = await fetch('/api/admin/agent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
+        body: JSON.stringify(newAgent)
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create agent');
       
       setNewAgent({ clientEmail: '', clientName: '', name: '', phone: '', prompt: 'You are a helpful AI assistant.', voiceId: 'alloy' });
       await fetchAgents();
@@ -137,27 +126,25 @@ export default function OwnerDashboard() {
     setIsUpdating(true);
     
     try {
-      const { error } = await supabase.from('agents').update({
-        agent_name: editingAgent.agent_name,
-        agent_prompt: editingAgent.agent_prompt,
-        phone_number: editingAgent.phone_number,
-        monthly_price: editingAgent.monthly_price,
-      }).eq('id', editingAgent.id);
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch('/api/admin/agent', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
+        body: JSON.stringify(editingAgent)
+      });
       
-      if (error) throw error;
-      
-      if (editingAgent.clients?.email || editingAgent.clients?.name) {
-        const { error: clientError } = await supabase.from('clients').update({
-          email: editingAgent.clients.email,
-          name: editingAgent.clients.name
-        }).eq('id', editingAgent.client_id);
-        if (clientError) throw clientError;
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update agent');
       
       await fetchAgents();
       setEditingAgent(null);
-    } catch (err) {
-      alert('Error updating agent.');
+    } catch (err: any) {
+      console.error(err);
+      alert('Error updating agent: ' + (err.message || JSON.stringify(err)));
     } finally {
       setIsUpdating(false);
     }

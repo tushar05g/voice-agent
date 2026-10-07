@@ -62,7 +62,7 @@ async def make_outbound_call(req: CallRequest, token: str = Depends(verify_token
     
     room_name = f"call-{req.phone_number.strip('+')}"
     import json
-    metadata = json.dumps({"persona": req.persona, "tenant_id": req.tenant_id})
+    metadata = json.dumps({"phone_number": req.phone_number})
     
     try:
         await lkapi.sip.create_sip_participant(

@@ -278,6 +278,19 @@ export default function Login() {
             </form>
           )}
         </div>
+
+        {/* Contact Us Section */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-600">
+            Interested in a custom Voice AI Agent for your business?
+          </p>
+          <a
+            href="mailto:support@voiceagent.in"
+            className="mt-2 inline-block font-medium text-blue-600 transition-colors hover:text-blue-500"
+          >
+            Contact our Sales Team &rarr;
+          </a>
+        </div>
       </div>
     </div>
   );

@@ -69,7 +69,7 @@ class GroqLLMStream(llm.LLMStream):
         except StopAsyncIteration:
             raise StopAsyncIteration
 
-async def fetch_tenant_config(tenant_id: str, persona: str) -> dict:
+async def fetch_tenant_config(phone_number: str) -> dict:
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_KEY")
     
@@ -85,18 +85,19 @@ async def fetch_tenant_config(tenant_id: str, persona: str) -> dict:
 
     try:
         supabase: Client = create_client(supabase_url, supabase_key)
-        # Fetch persona configuration from 'personas' table
-        response = supabase.table("personas").select("*").eq("tenant_id", tenant_id).eq("persona", persona).execute()
+        # Fetch agent configuration from 'agents' table
+        response = supabase.table("agents").select("*").eq("phone_number", phone_number).execute()
         
         if len(response.data) > 0:
             row = response.data[0]
+            logger.info(f"Loaded config for phone {phone_number} from Supabase")
             return {
-                "prompt": row.get("system_prompt", default_config["prompt"]),
+                "prompt": row.get("agent_prompt", default_config["prompt"]),
                 "voice_id": row.get("voice_id", default_config["voice_id"]),
-                "initial_greeting": row.get("initial_greeting", default_config["initial_greeting"])
+                "initial_greeting": "Hello! How can I help you today?"
             }
         else:
-            logger.warning(f"No configuration found for tenant_id: {tenant_id}, persona: {persona}. Using default.")
+            logger.warning(f"No configuration found in DB for phone: {phone_number}. Using default.")
             return default_config
     except Exception as e:
         logger.error(f"Error fetching from Supabase: {e}")
@@ -117,11 +118,12 @@ async def entrypoint(ctx: JobContext):
     except Exception as e:
         logger.error(f"Error parsing participant metadata: {e}")
 
-    tenant_id = metadata.get("tenant_id", "unknown_tenant")
-    persona = metadata.get("persona", "default")
+    # For testing from the frontend web app, we might pass phone_number in metadata.
+    # For actual SIP inbound calls, LiveKit provides the dialed number.
+    phone_number = metadata.get("phone_number", "+15551234567") 
     
     # Fetch configuration dynamically from database
-    client_config = await fetch_tenant_config(tenant_id, persona)
+    client_config = await fetch_tenant_config(phone_number)
 
     initial_ctx = llm.ChatContext().append(
         role="system",

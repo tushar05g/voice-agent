@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Bot, Sparkles, LogIn, ChevronRight, Fingerprint, Mail, ArrowRight, KeyRound } from 'lucide-react';
@@ -13,6 +13,24 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    // This listens for when the user clicks a Magic Link in their email
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',').map((e) => e.trim().toLowerCase()) || [];
+        const userEmail = session.user.email?.toLowerCase() || '';
+        
+        if (adminEmails.includes(userEmail) || userEmail === process.env.NEXT_PUBLIC_MASTER_EMAIL?.toLowerCase()) {
+          router.push('/owner');
+        } else {
+          router.push('/dashboard');
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [router]);
 
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,13 +202,13 @@ export default function Login() {
                 <div className="text-center space-y-2">
                   <Fingerprint className="mx-auto h-8 w-8 text-indigo-400 mb-4" />
                   <h3 className="text-lg font-medium text-white">Check your email</h3>
-                  <p className="text-sm text-zinc-400">We sent a 6-digit code to <br/><span className="text-zinc-200">{email}</span></p>
+                  <p className="text-sm text-zinc-400">Click the Magic Link we sent to <br/><span className="text-zinc-200">{email}</span></p>
+                  <p className="text-xs text-zinc-500 mt-2">Or enter the 6-digit code below if provided:</p>
                 </div>
                 
                 <input
                   type="text"
                   maxLength={6}
-                  required
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                   className="block w-full rounded-xl border border-white/10 bg-white/5 py-4 text-center text-3xl tracking-[0.5em] text-white placeholder:text-zinc-700 focus:border-indigo-500/50 focus:bg-white/10 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all font-mono"

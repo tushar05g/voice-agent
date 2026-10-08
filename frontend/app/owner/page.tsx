@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Bot, LogOut, Plus, Search, MessageSquare, PhoneCall, LayoutDashboard, Ticket, Users, Edit2, X } from 'lucide-react';
+import { Bot, LogOut, Plus, Search, MessageSquare, PhoneCall, LayoutDashboard, Ticket, Users, Edit2, X, Trash2, Eye } from 'lucide-react';
 
 type Agent = {
   id: string;
@@ -26,6 +26,7 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [menuTab, setMenuTab] = useState<'dashboard' | 'clients' | 'provision' | 'support'>('dashboard');
   const [editingClient, setEditingClient] = useState<any | null>(null);
+  const [viewingClient, setViewingClient] = useState<any | null>(null);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   
@@ -140,6 +141,30 @@ export default function OwnerDashboard() {
     }
   };
 
+  const handleDeleteClient = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete the client "${name}"? This will also permanently delete all of their agents. This action cannot be undone.`)) return;
+    
+    setIsUpdating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/admin/client?id=${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete client');
+      
+      await fetchAgents();
+      if (viewingClient?.id === id) setViewingClient(null);
+      if (editingClient?.id === id) setEditingClient(null);
+    } catch (err: any) {
+      alert('Error deleting client: ' + (err.message || JSON.stringify(err)));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleUpdateClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingClient) return;
@@ -220,7 +245,7 @@ export default function OwnerDashboard() {
             <LayoutDashboard className="h-4 w-4" /> Global Deployments
           </button>
           <button 
-            onClick={() => { setMenuTab('clients'); setEditingAgent(null); setEditingClient(null); }}
+            onClick={() => { setMenuTab('clients'); setEditingAgent(null); setEditingClient(null); setViewingClient(null); }}
             className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${menuTab === 'clients' ? 'bg-white/10 text-white shadow' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
           >
             <Users className="h-4 w-4" /> Client Directory

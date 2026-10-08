@@ -208,16 +208,16 @@ export default function Login() {
                 
                 <input
                   type="text"
-                  maxLength={6}
+                  maxLength={8}
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  className="block w-full rounded-xl border border-white/10 bg-white/5 py-4 text-center text-3xl tracking-[0.5em] text-white placeholder:text-zinc-700 focus:border-indigo-500/50 focus:bg-white/10 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all font-mono"
+                  onChange={(e) => setOtp(e.target.value.trim())}
+                  className="block w-full rounded-xl border border-white/10 bg-white/5 py-4 text-center text-3xl tracking-[0.3em] text-white placeholder:text-zinc-700 focus:border-indigo-500/50 focus:bg-white/10 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all font-mono uppercase"
                   placeholder="------"
                 />
 
                 <button
                   type="submit"
-                  disabled={loading || otp.length !== 6}
+                  disabled={loading || otp.length < 6}
                   className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-50"
                 >
                   {loading ? 'Verifying...' : 'Verify Code'}

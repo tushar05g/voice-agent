@@ -113,8 +113,8 @@ export default function OwnerDashboard() {
       await fetchAgents();
       setMenuTab('dashboard');
       
-    } catch (err) {
-      alert('Error creating agent. Check console for details.');
+    } catch (err: any) {
+      alert(`Error creating agent: ${err.message || 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }

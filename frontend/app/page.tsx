@@ -54,7 +54,7 @@ export default function Login() {
     if (adminEmails.includes(email.toLowerCase())) {
       router.push('/owner');
     } else {
-      router.push('/client');
+      router.push('/dashboard');
     }
   };
 

@@ -61,7 +61,7 @@ export default function ClientDashboard() {
        const {data} = await supabase.from('clients').select('id').eq('email', userEmail).single();
        if (data) clientId = data.id;
     }
-    if (!clientId) return alert("Error: Client profile not found.");
+    if (!clientId) return alert("Error: Client profile not found. Please wait for an admin to provision your account before submitting tickets.");
     
     const { error } = await supabase.from('support_tickets').insert([{ client_id: clientId, message }]);
     if (error) alert("Error submitting request: " + error.message);

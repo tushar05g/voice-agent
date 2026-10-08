@@ -42,16 +42,10 @@ export async function PUT(request: Request) {
       agent_prompt,
       phone_number,
       monthly_price,
+      client_id: client_id || undefined,
     }).eq('id', id);
 
     if (agentError) throw agentError;
-
-    if (client_id && client_id !== id) { // Allow reassigning to a different client id if provided, but don't mutate the clients table
-      const { error: reassignmentError } = await supabaseAdmin.from('agents').update({
-        client_id
-      }).eq('id', id);
-      if (reassignmentError) throw reassignmentError;
-    }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

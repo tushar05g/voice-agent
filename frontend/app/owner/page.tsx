@@ -40,6 +40,8 @@ export default function OwnerDashboard() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [provisionMode, setProvisionMode] = useState<'existing' | 'new'>('existing');
+  const [selectedClientId, setSelectedClientId] = useState('');
 
   useEffect(() => {
     checkAuthAndFetch();
@@ -96,7 +98,20 @@ export default function OwnerDashboard() {
 
   const handleAddAgent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAgent.clientEmail || !newAgent.name || !newAgent.phone) return;
+    if (!newAgent.name || !newAgent.phone) return;
+    
+    let payload = { ...newAgent };
+    if (provisionMode === 'existing') {
+      if (!selectedClientId) return alert("Please select a client.");
+      const c = clients.find(cl => cl.id === selectedClientId);
+      if (c) {
+        payload.clientEmail = c.email;
+        payload.clientName = c.name || '';
+      }
+    } else {
+      if (!newAgent.clientEmail) return alert("Client email is required.");
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -108,7 +123,7 @@ export default function OwnerDashboard() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token || ''}`
         },
-        body: JSON.stringify(newAgent)
+        body: JSON.stringify(payload)
       });
       
       const data = await res.json();
@@ -322,24 +337,18 @@ export default function OwnerDashboard() {
                     
                     <form onSubmit={handleUpdateAgent} className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-1.5">
-                          <label className="text-sm font-medium text-zinc-400">Client Name</label>
-                          <input
-                            type="text"
-                            disabled
-                            value={editingAgent.clients?.name || ''}
-                            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-500 cursor-not-allowed"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <label className="text-sm font-medium text-zinc-400">Client Email</label>
-                          <input
-                            type="email"
-                            disabled
-                            value={editingAgent.clients?.email || ''}
-                            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-500 cursor-not-allowed"
-                          />
-                          <p className="text-xs text-zinc-600 mt-1">Manage client profiles in the Client Directory tab.</p>
+                        <div className="space-y-1.5 md:col-span-2">
+                          <label className="text-sm font-medium text-zinc-400">Agent Owner (Client)</label>
+                          <select
+                            value={editingAgent.client_id}
+                            onChange={(e) => setEditingAgent({ ...editingAgent, client_id: e.target.value })}
+                            className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 appearance-none"
+                          >
+                            {clients.map((c: any) => (
+                              <option key={c.id} value={c.id}>{c.name || 'No Name'} ({c.email})</option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-zinc-600 mt-1">Reassign this agent to a different client.</p>
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-sm font-medium text-zinc-400">Agent Name</label>
@@ -543,28 +552,61 @@ export default function OwnerDashboard() {
 
               <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 backdrop-blur-xl shadow-xl">
                 <form onSubmit={handleAddAgent} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-zinc-400">Client Name</label>
-                      <input
-                        type="text"
-                        value={newAgent.clientName}
-                        onChange={(e) => setNewAgent({ ...newAgent, clientName: e.target.value })}
-                        className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
-                        placeholder="John Doe"
-                      />
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-zinc-400">Client Assignment</label>
+                    <div className="flex gap-2 mb-3 bg-white/5 p-1 rounded-xl">
+                      <button 
+                        type="button" 
+                        onClick={() => setProvisionMode('existing')} 
+                        className={`flex-1 py-2 text-sm rounded-lg font-medium transition-all ${provisionMode === 'existing' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+                      >
+                        Existing Client
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => setProvisionMode('new')} 
+                        className={`flex-1 py-2 text-sm rounded-lg font-medium transition-all ${provisionMode === 'new' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'}`}
+                      >
+                        Create New Client
+                      </button>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-zinc-400">Client Email</label>
-                      <input
-                        type="email"
-                        required
-                        value={newAgent.clientEmail}
-                        onChange={(e) => setNewAgent({ ...newAgent, clientEmail: e.target.value })}
-                        className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
-                        placeholder="client@company.com"
-                      />
-                    </div>
+
+                    {provisionMode === 'existing' ? (
+                      <select
+                        value={selectedClientId}
+                        onChange={(e) => setSelectedClientId(e.target.value)}
+                        className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 appearance-none"
+                      >
+                        <option value="">-- Select a Client --</option>
+                        {clients.map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.name || 'No Name'} ({c.email})</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium text-zinc-400">Client Name</label>
+                          <input
+                            type="text"
+                            value={newAgent.clientName}
+                            onChange={(e) => setNewAgent({ ...newAgent, clientName: e.target.value })}
+                            className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                            placeholder="John Doe"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium text-zinc-400">Client Email</label>
+                          <input
+                            type="email"
+                            value={newAgent.clientEmail}
+                            onChange={(e) => setNewAgent({ ...newAgent, clientEmail: e.target.value })}
+                            className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
+                            placeholder="client@company.com"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="space-y-1.5">

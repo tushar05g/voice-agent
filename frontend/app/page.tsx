@@ -68,12 +68,22 @@ export default function Login() {
     }
   };
 
-  const handleMasterLogin = (e: React.FormEvent) => {
+  const handleMasterLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     if (password === process.env.NEXT_PUBLIC_MASTER_PASSWORD) {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: process.env.NEXT_PUBLIC_MASTER_EMAIL || '',
+        password: password,
+      });
+
+      if (error) {
+        setError(`Supabase Error: ${error.message}. (Did you create this user in the Supabase Auth dashboard?)`);
+        setLoading(false);
+        return;
+      }
       router.push('/owner');
     } else {
       setError('Invalid master password');

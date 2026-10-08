@@ -53,7 +53,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       )}
     >
       <head>
-        <title>Voice AI Platform</title>
+        <title>VoiceHQ | Intelligent Voice Agents</title>
         <meta name="description" content="Intelligent voice agents for your business" />
       </head>
       <body className="overflow-x-hidden">

@@ -22,8 +22,10 @@ export default function OwnerDashboard() {
   const router = useRouter();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [menuTab, setMenuTab] = useState<'dashboard' | 'provision' | 'support'>('dashboard');
+  const [menuTab, setMenuTab] = useState<'dashboard' | 'clients' | 'provision' | 'support'>('dashboard');
+  const [editingClient, setEditingClient] = useState<any | null>(null);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   
@@ -86,6 +88,9 @@ export default function OwnerDashboard() {
     const { data: ticketData } = await supabase.from('support_tickets').select('*, clients(email, name)').order('created_at', { ascending: false });
     if (ticketData) setTickets(ticketData);
       
+    const { data: clientData } = await supabase.from('clients').select('*, agents(count)').order('created_at', { ascending: false });
+    if (clientData) setClients(clientData);
+
     setLoading(false);
   };
 
@@ -117,6 +122,36 @@ export default function OwnerDashboard() {
       alert(`Error creating agent: ${err.message || 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleUpdateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient) return;
+    setIsUpdating(true);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const res = await fetch('/api/admin/client', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
+        body: JSON.stringify({ id: editingClient.id, name: editingClient.name, email: editingClient.email })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update client');
+      
+      await fetchAgents();
+      setEditingClient(null);
+    } catch (err: any) {
+      console.error(err);
+      alert('Error updating client: ' + (err.message || JSON.stringify(err)));
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -168,6 +203,12 @@ export default function OwnerDashboard() {
             className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${menuTab === 'dashboard' ? 'bg-white/10 text-white shadow' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
           >
             <LayoutDashboard className="h-4 w-4" /> Global Deployments
+          </button>
+          <button 
+            onClick={() => { setMenuTab('clients'); setEditingAgent(null); setEditingClient(null); }}
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${menuTab === 'clients' ? 'bg-white/10 text-white shadow' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}
+          >
+            <Users className="h-4 w-4" /> Client Directory
           </button>
           <button 
             onClick={() => setMenuTab('provision')}
@@ -285,20 +326,20 @@ export default function OwnerDashboard() {
                           <label className="text-sm font-medium text-zinc-400">Client Name</label>
                           <input
                             type="text"
+                            disabled
                             value={editingAgent.clients?.name || ''}
-                            onChange={(e) => setEditingAgent({ ...editingAgent, clients: { ...editingAgent.clients, name: e.target.value } as any })}
-                            className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-500 cursor-not-allowed"
                           />
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-sm font-medium text-zinc-400">Client Email</label>
                           <input
                             type="email"
-                            required
+                            disabled
                             value={editingAgent.clients?.email || ''}
-                            onChange={(e) => setEditingAgent({ ...editingAgent, clients: { ...editingAgent.clients, email: e.target.value } as any })}
-                            className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                            className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-500 cursor-not-allowed"
                           />
+                          <p className="text-xs text-zinc-600 mt-1">Manage client profiles in the Client Directory tab.</p>
                         </div>
                         <div className="space-y-1.5">
                           <label className="text-sm font-medium text-zinc-400">Agent Name</label>
@@ -357,6 +398,133 @@ export default function OwnerDashboard() {
                           className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 focus:outline-none disabled:opacity-50"
                         >
                           {isUpdating ? 'Saving...' : 'Save Changes'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          
+          {menuTab === 'clients' && (
+            <div className="animate-in fade-in duration-500">
+              <header className="mb-10">
+                <h1 className="text-3xl font-semibold tracking-tight text-white mb-2">Client Directory</h1>
+                <p className="text-zinc-400">Manage client profiles and view their agent count.</p>
+              </header>
+
+              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 backdrop-blur-xl shadow-xl">
+                {!editingClient ? (
+                  <>
+                    <div className="mb-8 flex items-center justify-between">
+                      <h2 className="text-lg font-medium text-white flex items-center gap-2">
+                        <Users className="h-5 w-5 text-indigo-400" /> Client List
+                      </h2>
+                      <span className="rounded-full bg-indigo-500/10 px-4 py-1 text-xs font-medium text-indigo-400 border border-indigo-500/20">
+                        {clients.length} Total
+                      </span>
+                    </div>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-left text-sm">
+                        <thead>
+                          <tr className="border-b border-white/10 text-zinc-500">
+                            <th className="pb-4 pl-2 font-medium">Name</th>
+                            <th className="pb-4 font-medium">Email</th>
+                            <th className="pb-4 font-medium">Agents Deployed</th>
+                            <th className="pb-4 pr-2 font-medium">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-zinc-300">
+                          {loading ? (
+                            <tr>
+                              <td colSpan={4} className="py-12 text-center">
+                                <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                              </td>
+                            </tr>
+                          ) : clients.map((client) => (
+                            <tr key={client.id} className="group border-b border-white/5 transition-colors hover:bg-white/[0.02]">
+                              <td className="py-5 pl-2 font-medium text-zinc-200">{client.name || 'No Name'}</td>
+                              <td className="py-5 text-zinc-400">{client.email}</td>
+                              <td className="py-5 font-medium text-white">
+                                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">
+                                  {client.agents?.[0]?.count || 0}
+                                </span>
+                              </td>
+                              <td className="py-5 pr-2">
+                                <button 
+                                  onClick={() => setEditingClient(client)}
+                                  className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/10 transition-colors border border-white/10"
+                                >
+                                  <Edit2 className="h-3 w-3" /> Edit
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {!loading && clients.length === 0 && (
+                            <tr>
+                              <td colSpan={4} className="py-12 text-center text-zinc-500">
+                                No clients found.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  <div className="animate-in fade-in zoom-in-95 duration-300">
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-xl font-medium text-white flex items-center gap-2">
+                        <Edit2 className="h-5 w-5 text-indigo-400" /> Edit Client Profile
+                      </h2>
+                      <button 
+                        onClick={() => setEditingClient(null)}
+                        className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                    
+                    <form onSubmit={handleUpdateClient} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium text-zinc-400">Client Name</label>
+                          <input
+                            type="text"
+                            value={editingClient.name || ''}
+                            onChange={(e) => setEditingClient({ ...editingClient, name: e.target.value })}
+                            className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-medium text-zinc-400">Client Email</label>
+                          <input
+                            type="email"
+                            required
+                            value={editingClient.email || ''}
+                            onChange={(e) => setEditingClient({ ...editingClient, email: e.target.value })}
+                            className="w-full rounded-xl border border-white/10 bg-[#050505] px-4 py-3 text-sm text-white focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                        <button
+                          type="button"
+                          onClick={() => setEditingClient(null)}
+                          className="rounded-xl px-5 py-2.5 text-sm font-medium text-zinc-300 hover:text-white hover:bg-white/5 transition-all"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isUpdating}
+                          className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-500 focus:outline-none disabled:opacity-50"
+                        >
+                          {isUpdating ? 'Saving...' : 'Save Profile'}
                         </button>
                       </div>
                     </form>

@@ -46,13 +46,11 @@ export async function PUT(request: Request) {
 
     if (agentError) throw agentError;
 
-    if (clients && (clients.email || clients.name)) {
-      const { error: clientError } = await supabaseAdmin.from('clients').update({
-        email: clients.email,
-        name: clients.name
-      }).eq('id', client_id);
-      
-      if (clientError) throw clientError;
+    if (client_id && client_id !== id) { // Allow reassigning to a different client id if provided, but don't mutate the clients table
+      const { error: reassignmentError } = await supabaseAdmin.from('agents').update({
+        client_id
+      }).eq('id', id);
+      if (reassignmentError) throw reassignmentError;
     }
 
     return NextResponse.json({ success: true });
